@@ -16,3 +16,40 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - mediplus-network
+
+  # Option 1: Cloudflare Tunnel (free, no signup)
+  # Run: docker-compose up mediplus-backend cloudflared
+  # Then check: docker logs mediplus-tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mediplus-tunnel
+    command: tunnel --no-autoupdate --url http://mediplus-backend:5000
+    depends_on:
+      - mediplus-backend
+    networks:
+      - mediplus-network
+    profiles:
+      - tunnel
+
+  # Option 2: ngrok (requires NGROK_AUTHTOKEN)
+  # Run: NGROK_AUTHTOKEN=your_token docker-compose --profile ngrok up
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: mediplus-ngrok
+    command: http mediplus-backend:5000
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"  # ngrok web interface
+    depends_on:
+      - mediplus-backend
+    networks:
+      - mediplus-network
+    profiles:
+      - ngrok
+
+networks:
+  mediplus-network:
+    driver: bridge
