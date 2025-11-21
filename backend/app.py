@@ -24,6 +24,9 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Import services (lazy loading to handle missing dependencies gracefully)
 heart_predictor = None
+chest_xray_service = None
+skin_lesion_service = None
+eye_health_service = None
 
 def get_heart_predictor():
     """Lazy load heart disease predictor"""
@@ -37,6 +40,45 @@ def get_heart_predictor():
             logger.error(f"Failed to load heart predictor: {e}")
             heart_predictor = None
     return heart_predictor
+
+def get_chest_xray_service():
+    """Lazy load chest X-ray analysis service"""
+    global chest_xray_service
+    if chest_xray_service is None:
+        try:
+            from services.chest_xray_service import ChestXRayService
+            chest_xray_service = ChestXRayService()
+            logger.info("Chest X-Ray service loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load chest X-ray service: {e}")
+            chest_xray_service = None
+    return chest_xray_service
+
+def get_skin_lesion_service():
+    """Lazy load skin lesion analysis service"""
+    global skin_lesion_service
+    if skin_lesion_service is None:
+        try:
+            from services.skin_lesion_service import SkinLesionService
+            skin_lesion_service = SkinLesionService()
+            logger.info("Skin lesion service loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load skin lesion service: {e}")
+            skin_lesion_service = None
+    return skin_lesion_service
+
+def get_eye_health_service():
+    """Lazy load eye health analysis service"""
+    global eye_health_service
+    if eye_health_service is None:
+        try:
+            from services.eye_health_service import EyeHealthService
+            eye_health_service = EyeHealthService()
+            logger.info("Eye health service loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load eye health service: {e}")
+            eye_health_service = None
+    return eye_health_service
 
 
 # ============== Health Check ==============
@@ -468,6 +510,158 @@ def get_medicine_info():
 
     except Exception as e:
         logger.error(f"Medicine info error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ============== Image Analysis Endpoints ==============
+
+@app.route('/api/analyze/chest-xray', methods=['POST'])
+def analyze_chest_xray():
+    """
+    Analyze chest X-ray image for various conditions
+
+    Expected JSON payload:
+    {
+        "image": "base64_encoded_image_string"
+    }
+
+    Returns analysis for: Pneumonia, COVID-19, Cardiomegaly, Lung Nodule, etc.
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({
+                'success': False,
+                'error': 'No image provided'
+            }), 400
+
+        # Get service
+        service = get_chest_xray_service()
+
+        if service is None:
+            return jsonify({
+                'success': False,
+                'error': 'Chest X-ray analysis service not available'
+            }), 503
+
+        # Analyze image
+        result = service.analyze_image(image_data)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Chest X-ray analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/analyze/skin', methods=['POST'])
+def analyze_skin_lesion():
+    """
+    Analyze skin lesion image for potential conditions
+
+    Expected JSON payload:
+    {
+        "image": "base64_encoded_image_string"
+    }
+
+    Returns analysis for: Melanoma, Basal Cell Carcinoma, Benign Keratosis, etc.
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({
+                'success': False,
+                'error': 'No image provided'
+            }), 400
+
+        # Get service
+        service = get_skin_lesion_service()
+
+        if service is None:
+            return jsonify({
+                'success': False,
+                'error': 'Skin lesion analysis service not available'
+            }), 503
+
+        # Analyze image
+        result = service.analyze_image(image_data)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Skin lesion analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/analyze/eye', methods=['POST'])
+def analyze_eye_health():
+    """
+    Analyze retinal/eye image for diabetic retinopathy and other conditions
+
+    Expected JSON payload:
+    {
+        "image": "base64_encoded_image_string"
+    }
+
+    Returns analysis for: Diabetic Retinopathy (grades 0-4), Glaucoma, AMD, Cataracts
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        image_data = data.get('image')
+        if not image_data:
+            return jsonify({
+                'success': False,
+                'error': 'No image provided'
+            }), 400
+
+        # Get service
+        service = get_eye_health_service()
+
+        if service is None:
+            return jsonify({
+                'success': False,
+                'error': 'Eye health analysis service not available'
+            }), 503
+
+        # Analyze image
+        result = service.analyze_image(image_data)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Eye health analysis error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
