@@ -6,10 +6,13 @@ services:
     container_name: mediplus-api
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=5000
       - DEBUG=False
+      - GROQ_API_KEY=${GROQ_API_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
