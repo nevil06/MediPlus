@@ -20,6 +20,22 @@ class AIEnhancementService:
         if not self.api_key:
             print("Warning: GROQ_API_KEY not set. AI enhancement will be disabled.")
 
+    def enhance_chest_xray_analysis(
+        self,
+        image_data: str = None,
+        monai_predictions: Dict[str, Any] = None,
+        analysis_type: str = 'chest_xray'
+    ) -> Dict[str, Any]:
+        """Alias for enhance_chest_xray_result with flexible parameters"""
+        predictions = {}
+        if monai_predictions:
+            for condition, data in monai_predictions.items():
+                if isinstance(data, dict):
+                    predictions[condition] = data.get('probability', 0)
+                else:
+                    predictions[condition] = data
+        return self.enhance_chest_xray_result(predictions)
+
     def enhance_chest_xray_result(self, monai_predictions: Dict[str, float]) -> Dict[str, Any]:
         """Enhance MONAI chest X-ray predictions with detailed Groq explanation"""
 
@@ -42,6 +58,22 @@ Provide your response in this exact JSON format:
 Respond ONLY with valid JSON."""
 
         return self._get_groq_enhancement(prompt)
+
+    def enhance_skin_analysis(
+        self,
+        image_data: str = None,
+        monai_predictions: Dict[str, Any] = None,
+        abcde_scores: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """Alias for enhance_skin_lesion_result with flexible parameters"""
+        predictions = {}
+        if monai_predictions:
+            for condition, data in monai_predictions.items():
+                if isinstance(data, dict):
+                    predictions[condition] = data.get('probability', 0)
+                else:
+                    predictions[condition] = data
+        return self.enhance_skin_lesion_result(predictions, abcde_scores or {})
 
     def enhance_skin_lesion_result(self, monai_predictions: Dict[str, float], abcde_scores: Dict[str, Any]) -> Dict[str, Any]:
         """Enhance MONAI skin lesion predictions with Groq explanation"""
@@ -74,6 +106,24 @@ Respond ONLY with valid JSON."""
 
         return self._get_groq_enhancement(prompt)
 
+    def enhance_eye_analysis(
+        self,
+        image_data: str = None,
+        monai_predictions: Dict[str, Any] = None,
+        dr_grade: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """Alias for enhance_eye_health_result with flexible parameters"""
+        dr_predictions = {}
+        if dr_grade and 'all_grades' in dr_grade:
+            dr_predictions = dr_grade['all_grades']
+        elif monai_predictions:
+            for condition, data in monai_predictions.items():
+                if isinstance(data, dict):
+                    dr_predictions[condition] = data.get('probability', 0)
+                else:
+                    dr_predictions[condition] = data
+        return self.enhance_eye_health_result(dr_predictions, {})
+
     def enhance_eye_health_result(self, dr_predictions: Dict[str, float], other_findings: Dict[str, float]) -> Dict[str, Any]:
         """Enhance MONAI eye health predictions with Groq explanation"""
 
@@ -105,6 +155,33 @@ Provide your response in this exact JSON format:
     "follow_up_schedule": "when to get next examination",
     "lifestyle_tips": ["diabetes and eye health management tips"],
     "warning_signs": ["symptoms requiring immediate attention"]
+}}
+
+Respond ONLY with valid JSON."""
+
+        return self._get_groq_enhancement(prompt)
+
+    def enhance_segmentation_analysis(
+        self,
+        statistics: Dict[str, Any] = None,
+        task: str = None
+    ) -> Dict[str, Any]:
+        """Enhance segmentation results with Groq explanation"""
+        if not statistics:
+            return {'enhanced': False, 'error': 'No statistics provided'}
+
+        prompt = f"""You are a medical imaging AI assistant. Based on the following segmentation statistics for a {task or 'medical image'} analysis, provide a detailed interpretation.
+
+Segmentation Statistics:
+{json.dumps(statistics, indent=2)}
+
+Provide your response in this exact JSON format:
+{{
+    "interpretation": "detailed interpretation of what the segmentation shows",
+    "findings": ["list of key findings from the segmentation"],
+    "clinical_significance": "what these findings might indicate clinically",
+    "recommendations": ["list of recommended follow-up actions"],
+    "confidence_note": "note about the confidence level and limitations"
 }}
 
 Respond ONLY with valid JSON."""
