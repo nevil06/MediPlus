@@ -177,14 +177,14 @@ class EnhancedChestXRayAnalyzer:
             }
 
         # Get primary diagnosis
-        top_idx = results['predictions'][0][0]
-        top_prob = results['probabilities'][0][0]
+        top_idx = int(results['predictions'][0][0])
+        top_prob = float(results['probabilities'][0][0])
 
         return {
             'success': True,
             'primary_diagnosis': {
                 'condition': self.CLASSES[top_idx],
-                'probability': float(top_prob),
+                'probability': top_prob,
                 'confidence': self._get_confidence_level(top_prob)
             },
             'predictions': predictions,
@@ -347,14 +347,14 @@ class EnhancedSkinLesionAnalyzer:
                 'is_malignant': class_name in ['Melanoma', 'Basal Cell Carcinoma']
             }
 
-        top_idx = results['predictions'][0][0]
-        top_prob = results['probabilities'][0][0]
+        top_idx = int(results['predictions'][0][0])
+        top_prob = float(results['probabilities'][0][0])
 
         return {
             'success': True,
             'primary_diagnosis': {
                 'condition': self.CLASSES[top_idx],
-                'probability': float(top_prob),
+                'probability': top_prob,
                 'is_malignant': self.CLASSES[top_idx] in ['Melanoma', 'Basal Cell Carcinoma']
             },
             'predictions': predictions,
@@ -481,8 +481,8 @@ class EnhancedEyeHealthAnalyzer:
         )
 
         all_probs = results['all_probabilities'][0]
-        top_idx = results['predictions'][0][0]
-        top_prob = results['probabilities'][0][0]
+        top_idx = int(results['predictions'][0][0])
+        top_prob = float(results['probabilities'][0][0])
 
         # DR grading
         dr_predictions = {}
@@ -494,7 +494,7 @@ class EnhancedEyeHealthAnalyzer:
             'dr_grade': {
                 'grade': self.DR_GRADES[top_idx],
                 'severity_index': top_idx,
-                'probability': float(top_prob),
+                'probability': top_prob,
                 'all_grades': dr_predictions
             },
             'recommendations': self._get_recommendations(top_idx),
