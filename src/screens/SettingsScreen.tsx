@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, COMPONENT_SIZES } from '../constants/theme';
 import Header from '../components/Header';
+import MONAIInfoCard from '../components/MONAIInfoCard';
 import { scale } from '../utils/responsive';
 
 interface SettingItemProps {
@@ -57,6 +58,10 @@ export default function SettingsScreen() {
           <Text style={styles.appName}>MediPlus</Text>
           <Text style={styles.appVersion}>Version 1.0.0</Text>
         </View>
+
+        {/* MONAI Status */}
+        <Text style={styles.sectionTitle}>AI Engine Status</Text>
+        <MONAIInfoCard />
 
         {/* About Section */}
         <Text style={styles.sectionTitle}>About</Text>

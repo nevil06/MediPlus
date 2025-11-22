@@ -110,6 +110,14 @@ export default function HomeScreen({ navigation }: any) {
         />
 
         <FeatureCard
+          icon="layers"
+          title="Medical Segmentation"
+          description="Advanced MONAI-powered organ & tumor segmentation"
+          color="#E74C3C"
+          onPress={() => navigation.navigate('Segmentation')}
+        />
+
+        <FeatureCard
           icon="information-circle"
           title="Health Tips"
           description="Learn about maintaining a healthy lifestyle"

@@ -84,22 +84,37 @@ export type AnalysisResult = ChestXRayResult | SkinLesionResult | EyeHealthResul
 
 class ImageAnalysisService {
   private baseUrl: string;
+  private useEnhancedAPI: boolean = true; // Use v2 MONAI-enhanced APIs by default
 
   constructor() {
     this.baseUrl = API_CONFIG.BACKEND_URL;
   }
 
   /**
+   * Set whether to use enhanced v2 APIs
+   */
+  setUseEnhancedAPI(use: boolean) {
+    this.useEnhancedAPI = use;
+  }
+
+  /**
    * Analyze a chest X-ray image
    */
   async analyzeChestXRay(imageBase64: string): Promise<ChestXRayResult> {
+    const endpoint = this.useEnhancedAPI
+      ? '/api/v2/analyze/chest-xray'
+      : '/api/analyze/chest-xray';
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/analyze/chest-xray`, {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image: imageBase64 }),
+        body: JSON.stringify({
+          image: imageBase64,
+          enhance_with_ai: true,
+        }),
       });
 
       const data = await response.json();
@@ -117,13 +132,20 @@ class ImageAnalysisService {
    * Analyze a skin lesion image
    */
   async analyzeSkinLesion(imageBase64: string): Promise<SkinLesionResult> {
+    const endpoint = this.useEnhancedAPI
+      ? '/api/v2/analyze/skin'
+      : '/api/analyze/skin';
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/analyze/skin`, {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image: imageBase64 }),
+        body: JSON.stringify({
+          image: imageBase64,
+          enhance_with_ai: true,
+        }),
       });
 
       const data = await response.json();
@@ -141,13 +163,20 @@ class ImageAnalysisService {
    * Analyze an eye/retinal image
    */
   async analyzeEyeHealth(imageBase64: string): Promise<EyeHealthResult> {
+    const endpoint = this.useEnhancedAPI
+      ? '/api/v2/analyze/eye'
+      : '/api/analyze/eye';
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/analyze/eye`, {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image: imageBase64 }),
+        body: JSON.stringify({
+          image: imageBase64,
+          enhance_with_ai: true,
+        }),
       });
 
       const data = await response.json();

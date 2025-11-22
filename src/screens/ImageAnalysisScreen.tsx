@@ -17,11 +17,19 @@ import { scale, moderateScale, wp, hp } from '../utils/responsive';
 import Header from '../components/Header';
 import {
   imageAnalysisService,
-  AnalysisType,
+  AnalysisType as BaseAnalysisType,
   ChestXRayResult,
   SkinLesionResult,
   EyeHealthResult,
 } from '../services/imageAnalysisService';
+import {
+  monaiService,
+  SegmentationResult,
+  SegmentationTask,
+  SegmentationArchitecture,
+} from '../services/monaiService';
+
+type AnalysisType = BaseAnalysisType | 'segmentation';
 
 type AnalysisOption = {
   id: AnalysisType;
@@ -53,6 +61,27 @@ const analysisOptions: AnalysisOption[] = [
     icon: 'eye-outline',
     color: '#27AE60',
   },
+  {
+    id: 'segmentation',
+    title: 'Segmentation',
+    description: 'MONAI organ & structure segmentation',
+    icon: 'layers-outline',
+    color: '#E74C3C',
+  },
+];
+
+const segmentationTasks: { id: SegmentationTask; label: string }[] = [
+  { id: 'lung_2d', label: 'Lung (2D)' },
+  { id: 'cardiac_2d', label: 'Cardiac (2D)' },
+  { id: 'organ_3d', label: 'Organ (3D)' },
+  { id: 'liver_tumor', label: 'Liver Tumor' },
+];
+
+const segmentationArchitectures: { id: SegmentationArchitecture; label: string }[] = [
+  { id: 'unet', label: 'UNet' },
+  { id: 'attention_unet', label: 'Attention UNet' },
+  { id: 'segresnet', label: 'SegResNet' },
+  { id: 'unetr', label: 'UNETR' },
 ];
 
 export default function ImageAnalysisScreen() {
@@ -60,7 +89,11 @@ export default function ImageAnalysisScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<ChestXRayResult | SkinLesionResult | EyeHealthResult | null>(null);
+  const [result, setResult] = useState<ChestXRayResult | SkinLesionResult | EyeHealthResult | SegmentationResult | null>(null);
+
+  // Segmentation-specific state
+  const [segTask, setSegTask] = useState<SegmentationTask>('lung_2d');
+  const [segArchitecture, setSegArchitecture] = useState<SegmentationArchitecture>('unet');
 
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
@@ -114,8 +147,23 @@ export default function ImageAnalysisScreen() {
     setResult(null);
 
     try {
-      const analysisResult = await imageAnalysisService.analyze(selectedType, imageBase64);
-      setResult(analysisResult as ChestXRayResult | SkinLesionResult | EyeHealthResult);
+      let analysisResult;
+
+      if (selectedType === 'segmentation') {
+        // Use MONAI segmentation service
+        analysisResult = await monaiService.segment(imageBase64, {
+          task: segTask,
+          architecture: segArchitecture,
+          returnOverlay: true,
+          returnMasks: true,
+          enhanceWithAI: true,
+        });
+      } else {
+        // Use regular image analysis service
+        analysisResult = await imageAnalysisService.analyze(selectedType, imageBase64);
+      }
+
+      setResult(analysisResult);
     } catch (error) {
       console.error('Analysis error:', error);
       Alert.alert('Error', 'Failed to analyze image. Please try again.');
@@ -176,6 +224,42 @@ export default function ImageAnalysisScreen() {
           )}
         </TouchableOpacity>
       ))}
+    </View>
+  );
+
+  const renderSegmentationOptions = () => (
+    <View style={styles.segmentationOptions}>
+      <Text style={styles.sectionTitle}>Segmentation Settings</Text>
+
+      <Text style={styles.subSectionTitle}>Task</Text>
+      <View style={styles.chipRow}>
+        {segmentationTasks.map((task) => (
+          <TouchableOpacity
+            key={task.id}
+            style={[styles.chip, segTask === task.id && styles.chipSelected]}
+            onPress={() => setSegTask(task.id)}
+          >
+            <Text style={[styles.chipText, segTask === task.id && styles.chipTextSelected]}>
+              {task.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.subSectionTitle}>Architecture</Text>
+      <View style={styles.chipRow}>
+        {segmentationArchitectures.map((arch) => (
+          <TouchableOpacity
+            key={arch.id}
+            style={[styles.chip, segArchitecture === arch.id && styles.chipSelected]}
+            onPress={() => setSegArchitecture(arch.id)}
+          >
+            <Text style={[styles.chipText, segArchitecture === arch.id && styles.chipTextSelected]}>
+              {arch.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 
@@ -389,6 +473,82 @@ export default function ImageAnalysisScreen() {
     );
   };
 
+  const renderSegmentationResult = (data: SegmentationResult) => {
+    return (
+      <View style={styles.resultContainer}>
+        <View style={styles.resultHeader}>
+          <Text style={styles.resultTitle}>Segmentation Result</Text>
+          <View style={[styles.riskBadge, { backgroundColor: COLORS.primary + '20' }]}>
+            <Text style={[styles.riskText, { color: COLORS.primary }]}>
+              {data.task?.replace('_', ' ').toUpperCase()}
+            </Text>
+          </View>
+        </View>
+
+        {data.overlay && (
+          <View style={styles.segmentationImageContainer}>
+            <Text style={styles.findingLabel}>Segmentation Overlay</Text>
+            <Image
+              source={{ uri: `data:image/png;base64,${data.overlay}` }}
+              style={styles.segmentationImage}
+              resizeMode="contain"
+            />
+          </View>
+        )}
+
+        {data.statistics && (
+          <View style={styles.findingsSection}>
+            <Text style={styles.findingsSectionTitle}>Statistics</Text>
+            {Object.entries(data.statistics).map(([className, stats]) => (
+              <View key={className} style={styles.findingItem}>
+                <View style={styles.findingHeader}>
+                  <Text style={styles.findingCondition}>{className}</Text>
+                  <Text style={styles.findingProb}>{stats.percentage.toFixed(1)}%</Text>
+                </View>
+                <Text style={styles.findingDesc}>
+                  {stats.present ? 'Detected' : 'Not detected'} • {stats.pixel_count.toLocaleString()} pixels
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {data.ai_analysis && (
+          <View style={styles.aiAnalysisSection}>
+            <Text style={styles.findingsSectionTitle}>AI Analysis</Text>
+            <Text style={styles.aiInterpretation}>{data.ai_analysis.interpretation}</Text>
+
+            {data.ai_analysis.findings.length > 0 && (
+              <View style={styles.aiFindingsList}>
+                {data.ai_analysis.findings.map((finding, index) => (
+                  <View key={index} style={styles.stepItem}>
+                    <Ionicons name="checkmark-circle-outline" size={scale(14)} color={COLORS.success} />
+                    <Text style={styles.stepText}>{finding}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {data.ai_analysis.recommendations.length > 0 && (
+              <View style={styles.recommendationBox}>
+                <Ionicons name="bulb-outline" size={scale(18)} color={COLORS.primary} />
+                <View style={{ flex: 1 }}>
+                  {data.ai_analysis.recommendations.map((rec, index) => (
+                    <Text key={index} style={styles.recommendationText}>{rec}</Text>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        <Text style={styles.disclaimer}>
+          Segmentation results are for research purposes only. Always consult healthcare professionals.
+        </Text>
+      </View>
+    );
+  };
+
   const renderResult = () => {
     if (!result || !result.success) return null;
 
@@ -399,6 +559,8 @@ export default function ImageAnalysisScreen() {
         return renderSkinResult(result as SkinLesionResult);
       case 'eye':
         return renderEyeResult(result as EyeHealthResult);
+      case 'segmentation':
+        return renderSegmentationResult(result as SegmentationResult);
       default:
         return null;
     }
@@ -418,6 +580,8 @@ export default function ImageAnalysisScreen() {
         </Text>
 
         {renderAnalysisOptions()}
+
+        {selectedType === 'segmentation' && renderSegmentationOptions()}
 
         {selectedType && renderImagePicker()}
 
@@ -775,5 +939,66 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: COMPONENT_SIZES.tabBarHeight + scale(20),
+  },
+  // Segmentation styles
+  segmentationOptions: {
+    backgroundColor: COLORS.surface,
+    borderRadius: scale(12),
+    padding: scale(14),
+    marginBottom: scale(16),
+  },
+  subSectionTitle: {
+    fontSize: moderateScale(13),
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: scale(8),
+    marginTop: scale(12),
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: scale(8),
+  },
+  chip: {
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(8),
+    borderRadius: scale(20),
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chipSelected: {
+    backgroundColor: COLORS.primary + '15',
+    borderColor: COLORS.primary,
+  },
+  chipText: {
+    fontSize: moderateScale(12),
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  chipTextSelected: {
+    color: COLORS.primary,
+  },
+  segmentationImageContainer: {
+    marginBottom: scale(16),
+  },
+  segmentationImage: {
+    width: '100%',
+    height: hp(30),
+    borderRadius: scale(8),
+    backgroundColor: COLORS.background,
+    marginTop: scale(8),
+  },
+  aiAnalysisSection: {
+    marginTop: scale(16),
+  },
+  aiInterpretation: {
+    fontSize: moderateScale(13),
+    color: COLORS.text,
+    lineHeight: scale(20),
+    marginBottom: scale(12),
+  },
+  aiFindingsList: {
+    marginBottom: scale(12),
   },
 });
