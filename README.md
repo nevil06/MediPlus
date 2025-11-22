@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-brightgreen.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/platform-Android-3DDC84.svg" alt="Platform">
   <img src="https://img.shields.io/badge/React%20Native-0.81.5-61dafb.svg" alt="React Native">
   <img src="https://img.shields.io/badge/Expo-54.0.25-000020.svg" alt="Expo">
   <img src="https://img.shields.io/badge/MONAI-1.3.0+-green.svg" alt="MONAI">
@@ -299,10 +299,8 @@ cp .env.example .env
 # Start development server
 npm start
 
-# Run on specific platform
-npm run android   # Android
-npm run ios       # iOS
-npm run web       # Web browser
+# Run on Android
+npm run android
 ```
 
 ### Backend Setup
@@ -501,9 +499,8 @@ npm run typecheck
 ### Building for Production
 
 ```bash
-# Frontend - Expo EAS Build
+# Frontend - Expo EAS Build (Android)
 eas build --platform android
-eas build --platform ios
 
 # Backend - Docker
 docker build -t mediplus-backend .
