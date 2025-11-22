@@ -37,6 +37,9 @@ export default {
     extra: {
       GROQ_API_KEY: process.env.GROQ_API_KEY || '',
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000',
+      eas: {
+        projectId: 'd5b2ead9-f9a3-4818-b993-b89285b58478',
+      },
     },
   },
 };
