@@ -19,6 +19,12 @@
   <img src="https://img.shields.io/badge/TypeScript-5.9.2-3178c6.svg" alt="TypeScript">
 </p>
 
+<p align="center">
+  <a href="https://www.mediafire.com/file/o5ds8lz1gpnizzo/MediPlus.apk/file">
+    <img src="https://img.shields.io/badge/Download%20APK-MediPlus-green?style=for-the-badge&logo=android" alt="Download APK">
+  </a>
+</p>
+
 ---
 
 ## Table of Contents
