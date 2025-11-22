@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,37 +11,63 @@ import {
   ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, COMPONENT_SIZES } from '../constants/theme';
 import { groqService, Message } from '../services/groqService';
+import {
+  chatStorageService,
+  ChatMessage,
+  ChatSession,
+} from '../services/chatStorageService';
 import Header from '../components/Header';
+import ChatHistoryModal from '../components/ChatHistoryModal';
 import { scale, wp } from '../utils/responsive';
 
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
-
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: "Hello! I'm MediBot, your personal health assistant.\n\nI can help you with:\n• General health questions\n• Understanding symptoms\n• Wellness tips\n• Heart health guidance\n\nHow can I assist you today?",
-      timestamp: new Date(),
-    },
-  ]);
+  // State
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
+  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
   const flatListRef = useRef<FlatList>(null);
 
   const TAB_BAR_SPACE = COMPONENT_SIZES.tabBarHeight + COMPONENT_SIZES.tabBarBottom;
 
+  // Initialize - load or create session
+  useEffect(() => {
+    initializeChat();
+  }, []);
+
+  const initializeChat = async () => {
+    try {
+      const session = await chatStorageService.getOrCreateActiveSession();
+      setCurrentSession(session);
+      setMessages(session.messages.map(msg => ({
+        ...msg,
+        timestamp: msg.timestamp,
+      })));
+      setIsInitialized(true);
+    } catch (error) {
+      console.error('Failed to initialize chat:', error);
+      // Fallback to default welcome message
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: "Hello! I'm MediBot, your personal health assistant.\n\nI can help you with:\n• General health questions\n• Understanding symptoms\n• Wellness tips\n• Heart health guidance\n\nHow can I assist you today?",
+        timestamp: new Date().toISOString(),
+      }]);
+      setIsInitialized(true);
+    }
+  };
+
+  // Keyboard listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
@@ -58,48 +84,119 @@ export default function ChatScreen() {
     };
   }, []);
 
-  const sendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputText.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInputText('');
-    setIsLoading(true);
-
-    const history: Message[] = messages.slice(-10).map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
-
-    const response = await groqService.sendMessage(inputText.trim(), history);
-
-    const botMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: response.success
-        ? response.message!
-        : "I'm sorry, I'm having trouble connecting right now. Please try again later.",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, botMessage]);
-    setIsLoading(false);
-  };
-
+  // Scroll to end when messages change
   useEffect(() => {
-    if (flatListRef.current) {
+    if (flatListRef.current && messages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
   }, [messages]);
 
+  // Create new chat session
+  const handleNewChat = useCallback(async () => {
+    try {
+      const newSession = await chatStorageService.createSession();
+      await chatStorageService.setActiveSessionId(newSession.id);
+      setCurrentSession(newSession);
+      setMessages(newSession.messages);
+    } catch (error) {
+      console.error('Failed to create new chat:', error);
+      Alert.alert('Error', 'Failed to create new chat. Please try again.');
+    }
+  }, []);
+
+  // Load a specific session
+  const handleSelectSession = useCallback(async (sessionId: string) => {
+    try {
+      const session = await chatStorageService.getSession(sessionId);
+      if (session) {
+        await chatStorageService.setActiveSessionId(sessionId);
+        setCurrentSession(session);
+        setMessages(session.messages);
+      }
+    } catch (error) {
+      console.error('Failed to load session:', error);
+      Alert.alert('Error', 'Failed to load chat. Please try again.');
+    }
+  }, []);
+
+  // Send message
+  const sendMessage = async () => {
+    if (!inputText.trim() || isLoading || !currentSession) return;
+
+    const userMessageContent = inputText.trim();
+    setInputText('');
+    setIsLoading(true);
+
+    // Create user message
+    const userMessage: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      role: 'user',
+      content: userMessageContent,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Optimistically add user message to UI
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+
+    try {
+      // Save user message to storage
+      await chatStorageService.addMessage(currentSession.id, {
+        role: 'user',
+        content: userMessageContent,
+      });
+
+      // Prepare conversation history for API
+      const history: Message[] = messages.slice(-10).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      // Send to Groq API
+      const response = await groqService.sendMessage(userMessageContent, history);
+
+      // Create bot response message
+      const botMessage: ChatMessage = {
+        id: `msg_${Date.now() + 1}`,
+        role: 'assistant',
+        content: response.success
+          ? response.message!
+          : "I'm sorry, I'm having trouble connecting right now. Please try again later.",
+        timestamp: new Date().toISOString(),
+      };
+
+      // Update UI with bot response
+      setMessages((prev) => [...prev, botMessage]);
+
+      // Save bot message to storage
+      await chatStorageService.addMessage(currentSession.id, {
+        role: 'assistant',
+        content: botMessage.content,
+      });
+
+      // Refresh current session state
+      const updatedSession = await chatStorageService.getSession(currentSession.id);
+      if (updatedSession) {
+        setCurrentSession(updatedSession);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Add error message
+      const errorMessage: ChatMessage = {
+        id: `msg_${Date.now() + 1}`,
+        role: 'assistant',
+        content: "I'm sorry, something went wrong. Please try again.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Render message bubble
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     return (
@@ -133,6 +230,19 @@ export default function ChatScreen() {
     );
   };
 
+  // Loading state while initializing
+  if (!isInitialized) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Header />
+        <View style={styles.initializingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.initializingText}>Loading MediBot...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
@@ -143,6 +253,34 @@ export default function ChatScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.inner}>
             <Header />
+
+            {/* Chat Action Bar */}
+            <View style={styles.actionBar}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => setIsHistoryVisible(true)}
+              >
+                <Ionicons name="time-outline" size={scale(20)} color={COLORS.primary} />
+                <Text style={styles.actionButtonText}>History</Text>
+              </TouchableOpacity>
+
+              <View style={styles.sessionInfo}>
+                <Text style={styles.sessionTitle} numberOfLines={1}>
+                  {currentSession?.title || 'New Chat'}
+                </Text>
+                <Text style={styles.sessionMeta}>
+                  {currentSession?.messageCount || 0} messages
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleNewChat}
+              >
+                <Ionicons name="add-circle-outline" size={scale(20)} color={COLORS.primary} />
+                <Text style={styles.actionButtonText}>New</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Chat Messages */}
             <FlatList
@@ -201,6 +339,15 @@ export default function ChatScreen() {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      {/* Chat History Modal */}
+      <ChatHistoryModal
+        visible={isHistoryVisible}
+        onClose={() => setIsHistoryVisible(false)}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
+        currentSessionId={currentSession?.id || null}
+      />
     </SafeAreaView>
   );
 }
@@ -215,6 +362,55 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
+  },
+  initializingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  initializingText: {
+    marginTop: scale(12),
+    fontSize: SIZES.md,
+    color: COLORS.textSecondary,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(8),
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(6),
+    borderRadius: SIZES.radius,
+    backgroundColor: COLORS.primaryLight + '20',
+  },
+  actionButtonText: {
+    marginLeft: scale(4),
+    fontSize: SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  sessionInfo: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: scale(8),
+  },
+  sessionTitle: {
+    fontSize: SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.text,
+    maxWidth: wp(40),
+  },
+  sessionMeta: {
+    fontSize: SIZES.xs,
+    color: COLORS.textSecondary,
   },
   messagesList: {
     padding: SIZES.padding,

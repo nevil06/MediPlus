@@ -668,6 +668,277 @@ def analyze_eye_health():
         }), 500
 
 
+# ============== Enhanced Analysis Services (Full MONAI) ==============
+
+# Enhanced services with full MONAI capabilities
+enhanced_chest_analyzer = None
+enhanced_skin_analyzer = None
+enhanced_eye_analyzer = None
+segmentation_service = None
+
+def get_enhanced_chest_analyzer():
+    """Lazy load enhanced chest X-ray analyzer with full MONAI"""
+    global enhanced_chest_analyzer
+    if enhanced_chest_analyzer is None:
+        try:
+            from services.enhanced_analysis_service import enhanced_chest_xray_analyzer
+            enhanced_chest_analyzer = enhanced_chest_xray_analyzer
+            logger.info("Enhanced chest X-ray analyzer loaded")
+        except Exception as e:
+            logger.error(f"Failed to load enhanced chest analyzer: {e}")
+    return enhanced_chest_analyzer
+
+def get_enhanced_skin_analyzer():
+    """Lazy load enhanced skin lesion analyzer with full MONAI"""
+    global enhanced_skin_analyzer
+    if enhanced_skin_analyzer is None:
+        try:
+            from services.enhanced_analysis_service import enhanced_skin_lesion_analyzer
+            enhanced_skin_analyzer = enhanced_skin_lesion_analyzer
+            logger.info("Enhanced skin lesion analyzer loaded")
+        except Exception as e:
+            logger.error(f"Failed to load enhanced skin analyzer: {e}")
+    return enhanced_skin_analyzer
+
+def get_enhanced_eye_analyzer():
+    """Lazy load enhanced eye health analyzer with full MONAI"""
+    global enhanced_eye_analyzer
+    if enhanced_eye_analyzer is None:
+        try:
+            from services.enhanced_analysis_service import enhanced_eye_health_analyzer
+            enhanced_eye_analyzer = enhanced_eye_health_analyzer
+            logger.info("Enhanced eye health analyzer loaded")
+        except Exception as e:
+            logger.error(f"Failed to load enhanced eye analyzer: {e}")
+    return enhanced_eye_analyzer
+
+def get_segmentation_service(task='lung_2d', architecture='unet'):
+    """Lazy load segmentation service"""
+    global segmentation_service
+    try:
+        from services.segmentation_service import create_segmentation_service
+        return create_segmentation_service(task=task, architecture=architecture)
+    except Exception as e:
+        logger.error(f"Failed to load segmentation service: {e}")
+        return None
+
+
+@app.route('/api/v2/analyze/chest-xray', methods=['POST'])
+def analyze_chest_xray_v2():
+    """
+    Enhanced chest X-ray analysis using full MONAI capabilities
+
+    Features:
+    - MONAI medical-specific transforms
+    - Test-time augmentation
+    - Multiple model architectures
+    - Groq AI enhancement
+    """
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        analyzer = get_enhanced_chest_analyzer()
+        if analyzer is None:
+            return jsonify({'success': False, 'error': 'Enhanced analyzer not available'}), 503
+
+        result = analyzer.analyze(
+            image_data=data['image'],
+            enhance_with_ai=data.get('enhance_with_ai', True)
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Enhanced chest X-ray analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/v2/analyze/skin', methods=['POST'])
+def analyze_skin_v2():
+    """
+    Enhanced skin lesion analysis using full MONAI capabilities
+
+    Features:
+    - MONAI dermoscopy transforms
+    - EfficientNet architecture
+    - ABCDE melanoma criteria
+    - Groq AI enhancement
+    """
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        analyzer = get_enhanced_skin_analyzer()
+        if analyzer is None:
+            return jsonify({'success': False, 'error': 'Enhanced analyzer not available'}), 503
+
+        result = analyzer.analyze(
+            image_data=data['image'],
+            enhance_with_ai=data.get('enhance_with_ai', True)
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Enhanced skin analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/v2/analyze/eye', methods=['POST'])
+def analyze_eye_v2():
+    """
+    Enhanced eye/retinal analysis using full MONAI capabilities
+
+    Features:
+    - MONAI fundus-specific transforms (512x512)
+    - Test-time augmentation
+    - Diabetic retinopathy grading
+    - Groq AI enhancement
+    """
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        analyzer = get_enhanced_eye_analyzer()
+        if analyzer is None:
+            return jsonify({'success': False, 'error': 'Enhanced analyzer not available'}), 503
+
+        result = analyzer.analyze(
+            image_data=data['image'],
+            enhance_with_ai=data.get('enhance_with_ai', True)
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Enhanced eye analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============== Segmentation Endpoints ==============
+
+@app.route('/api/segment', methods=['POST'])
+def segment_image():
+    """
+    Medical image segmentation using MONAI
+
+    Expected JSON payload:
+    {
+        "image": "base64_encoded_image_string",
+        "task": "lung_2d",  # lung_2d, cardiac_2d, organ_3d, liver_tumor, brain_tumor
+        "architecture": "unet",  # unet, segresnet, attention_unet, unetr, swin_unetr
+        "return_overlay": true,
+        "return_masks": true,
+        "enhance_with_ai": true
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
+
+        task = data.get('task', 'lung_2d')
+        architecture = data.get('architecture', 'unet')
+
+        service = get_segmentation_service(task=task, architecture=architecture)
+        if service is None:
+            return jsonify({'success': False, 'error': 'Segmentation service not available'}), 503
+
+        result = service.segment(
+            image_data=data['image'],
+            return_overlay=data.get('return_overlay', True),
+            return_masks=data.get('return_masks', True),
+            enhance_with_ai=data.get('enhance_with_ai', True)
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Segmentation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/segment/tasks', methods=['GET'])
+def get_segmentation_tasks():
+    """Get available segmentation tasks and architectures"""
+    try:
+        from services.segmentation_service import MedicalSegmentationService
+        return jsonify({
+            'success': True,
+            'tasks': MedicalSegmentationService.get_available_tasks(),
+            'architectures': MedicalSegmentationService.get_available_architectures()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'fallback_tasks': ['lung_2d', 'cardiac_2d'],
+            'fallback_architectures': ['unet', 'segresnet']
+        })
+
+
+# ============== MONAI Capabilities Info ==============
+
+@app.route('/api/monai/info', methods=['GET'])
+def get_monai_info():
+    """Get information about available MONAI capabilities"""
+    info = {
+        'monai_available': False,
+        'torch_available': False,
+        'cuda_available': False,
+        'transforms': [],
+        'networks': [],
+        'losses': [],
+        'metrics': []
+    }
+
+    try:
+        import torch
+        info['torch_available'] = True
+        info['cuda_available'] = torch.cuda.is_available()
+        if info['cuda_available']:
+            info['cuda_device'] = torch.cuda.get_device_name(0)
+    except ImportError:
+        pass
+
+    try:
+        import monai
+        info['monai_available'] = True
+        info['monai_version'] = monai.__version__
+
+        # Available transforms
+        info['transforms'] = [
+            'LoadImage', 'EnsureChannelFirst', 'Spacing', 'Orientation',
+            'ScaleIntensityRange', 'NormalizeIntensity', 'CropForeground',
+            'RandFlip', 'RandRotate', 'RandZoom', 'RandGaussianNoise',
+            'RandAdjustContrast', 'RandCropByPosNegLabel'
+        ]
+
+        # Available networks
+        info['networks'] = [
+            'UNet', 'BasicUNet', 'AttentionUNet', 'VNet', 'SegResNet',
+            'UNETR', 'SwinUNETR', 'DynUNet', 'HighResNet',
+            'DenseNet121', 'EfficientNetBN', 'SEResNet50', 'ViT'
+        ]
+
+        # Available losses
+        info['losses'] = [
+            'DiceLoss', 'DiceCELoss', 'DiceFocalLoss', 'FocalLoss',
+            'TverskyLoss', 'GeneralizedDiceLoss'
+        ]
+
+        # Available metrics
+        info['metrics'] = [
+            'DiceMetric', 'HausdorffDistanceMetric', 'SurfaceDistanceMetric',
+            'MeanIoU', 'ConfusionMatrixMetric', 'ROCAUCMetric'
+        ]
+
+    except ImportError:
+        pass
+
+    return jsonify(info)
+
+
 # ============== Server Configuration ==============
 
 if __name__ == '__main__':

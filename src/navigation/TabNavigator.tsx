@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform } from 'react-native';
 
@@ -8,14 +9,30 @@ import ChatScreen from '../screens/ChatScreen';
 import HeartScreen from '../screens/HeartScreen';
 import ImageAnalysisScreen from '../screens/ImageAnalysisScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SegmentationScreen from '../screens/SegmentationScreen';
 import { COLORS, SIZES, COMPONENT_SIZES } from '../constants/theme';
 import { scale, moderateScale } from '../utils/responsive';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const Tab = createBottomTabNavigator();
+// Navigation types
+export type RootStackParamList = {
+  MainTabs: undefined;
+  Segmentation: undefined;
+};
 
-export default function TabNavigator() {
+export type TabParamList = {
+  Home: undefined;
+  Chat: undefined;
+  Heart: undefined;
+  Scan: undefined;
+  Settings: undefined;
+};
+
+const Tab = createBottomTabNavigator<TabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+function TabsNavigator() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -82,6 +99,23 @@ export default function TabNavigator() {
         options={{ tabBarLabel: 'Settings' }}
       />
     </Tab.Navigator>
+  );
+}
+
+// Root Navigator with Stack for modal screens
+export default function RootNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={TabsNavigator} />
+      <Stack.Screen
+        name="Segmentation"
+        component={SegmentationScreen}
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }}
+      />
+    </Stack.Navigator>
   );
 }
 
