@@ -150,10 +150,11 @@ class MONAITransforms:
         self.check_availability()
 
         base_transforms = [
-            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) - channels last
+            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) → (C, H, W)
             Resize(spatial_size=spatial_size, mode='bilinear'),
             ScaleIntensityRange(a_min=0, a_max=255, b_min=0.0, b_max=1.0, clip=True),
-            NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225]),
+            # Use channel_wise=True for per-channel RGB normalization (ImageNet stats)
+            NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225], channel_wise=True),
         ]
 
         if is_training:
@@ -180,10 +181,11 @@ class MONAITransforms:
         self.check_availability()
 
         base_transforms = [
-            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) - channels last
+            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) → (C, H, W)
             Resize(spatial_size=spatial_size, mode='bilinear'),
             ScaleIntensityRange(a_min=0, a_max=255, b_min=0.0, b_max=1.0, clip=True),
-            NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225]),
+            # Use channel_wise=True for per-channel RGB normalization (ImageNet stats)
+            NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225], channel_wise=True),
         ]
 
         if is_training:
