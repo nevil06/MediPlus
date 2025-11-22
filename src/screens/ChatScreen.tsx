@@ -10,7 +10,6 @@ import {
   Platform,
   ActivityIndicator,
   Keyboard,
-  TouchableWithoutFeedback,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -250,94 +249,94 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.inner}>
-            <Header />
+        <View style={styles.inner}>
+          <Header />
 
-            {/* Chat Action Bar */}
-            <View style={styles.actionBar}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => setIsHistoryVisible(true)}
-              >
-                <Ionicons name="time-outline" size={scale(20)} color={COLORS.primary} />
-                <Text style={styles.actionButtonText}>History</Text>
-              </TouchableOpacity>
+          {/* Chat Action Bar */}
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setIsHistoryVisible(true)}
+            >
+              <Ionicons name="time-outline" size={scale(20)} color={COLORS.primary} />
+              <Text style={styles.actionButtonText}>History</Text>
+            </TouchableOpacity>
 
-              <View style={styles.sessionInfo}>
-                <Text style={styles.sessionTitle} numberOfLines={1}>
-                  {currentSession?.title || 'New Chat'}
-                </Text>
-                <Text style={styles.sessionMeta}>
-                  {currentSession?.messageCount || 0} messages
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleNewChat}
-              >
-                <Ionicons name="add-circle-outline" size={scale(20)} color={COLORS.primary} />
-                <Text style={styles.actionButtonText}>New</Text>
-              </TouchableOpacity>
+            <View style={styles.sessionInfo}>
+              <Text style={styles.sessionTitle} numberOfLines={1}>
+                {currentSession?.title || 'New Chat'}
+              </Text>
+              <Text style={styles.sessionMeta}>
+                {currentSession?.messageCount || 0} messages
+              </Text>
             </View>
 
-            {/* Chat Messages */}
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              renderItem={renderMessage}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={[
-                styles.messagesList,
-                { paddingBottom: keyboardVisible ? scale(10) : TAB_BAR_SPACE + scale(10) }
-              ]}
-              showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            />
-
-            {/* Loading Indicator */}
-            {isLoading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text style={styles.loadingText}>MediBot is thinking...</Text>
-              </View>
-            )}
-
-            {/* Input Area */}
-            <View style={[
-              styles.inputContainer,
-              { marginBottom: keyboardVisible ? 0 : TAB_BAR_SPACE }
-            ]}>
-              <TextInput
-                style={styles.textInput}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Ask me anything about health..."
-                placeholderTextColor={COLORS.textLight}
-                multiline
-                maxLength={1000}
-                onFocus={() => {
-                  setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
-                }}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
-                ]}
-                onPress={sendMessage}
-                disabled={!inputText.trim() || isLoading}
-              >
-                <Ionicons
-                  name="send"
-                  size={scale(18)}
-                  color={inputText.trim() && !isLoading ? COLORS.surface : COLORS.textLight}
-                />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleNewChat}
+            >
+              <Ionicons name="add-circle-outline" size={scale(20)} color={COLORS.primary} />
+              <Text style={styles.actionButtonText}>New</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableWithoutFeedback>
+
+          {/* Chat Messages */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.messagesList,
+              { paddingBottom: keyboardVisible ? scale(10) : TAB_BAR_SPACE + scale(10) }
+            ]}
+            showsVerticalScrollIndicator={true}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          />
+
+          {/* Loading Indicator */}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.loadingText}>MediBot is thinking...</Text>
+            </View>
+          )}
+
+          {/* Input Area */}
+          <View style={[
+            styles.inputContainer,
+            { marginBottom: keyboardVisible ? 0 : TAB_BAR_SPACE }
+          ]}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Ask me anything about health..."
+              placeholderTextColor={COLORS.textLight}
+              multiline
+              maxLength={1000}
+              onFocus={() => {
+                setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
+              }}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
+              ]}
+              onPress={sendMessage}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Ionicons
+                name="send"
+                size={scale(18)}
+                color={inputText.trim() && !isLoading ? COLORS.surface : COLORS.textLight}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
       </KeyboardAvoidingView>
 
       {/* Chat History Modal */}
