@@ -215,11 +215,13 @@ class MedicalSegmentationService:
         if config['spatial_dims'] == 2:
             if self.task == 'lung_2d':
                 self.transforms = transforms.get_chest_xray_transforms(
-                    spatial_size=config['roi_size'][:2]
+                    spatial_size=config['roi_size'][:2],
+                    is_grayscale=True  # Segmentation uses grayscale images
                 )
             elif self.task == 'cardiac_2d':
                 self.transforms = transforms.get_chest_xray_transforms(
-                    spatial_size=config['roi_size'][:2]
+                    spatial_size=config['roi_size'][:2],
+                    is_grayscale=True  # Segmentation uses grayscale images
                 )
         else:
             self.transforms = transforms.get_ct_scan_transforms(

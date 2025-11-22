@@ -103,13 +103,26 @@ class MONAITransforms:
     def get_chest_xray_transforms(
         self,
         spatial_size: Tuple[int, int] = (224, 224),
-        is_training: bool = False
+        is_training: bool = False,
+        is_grayscale: bool = False
     ) -> Callable:
-        """Get transforms optimized for chest X-ray analysis"""
+        """Get transforms optimized for chest X-ray analysis
+
+        Args:
+            spatial_size: Target spatial dimensions
+            is_training: Whether to include augmentation
+            is_grayscale: If True, expects (H, W) grayscale input; if False, expects (H, W, C) RGB
+        """
         self.check_availability()
 
+        # Handle channel dimension based on input format
+        if is_grayscale:
+            channel_first = EnsureChannelFirst(channel_dim="no_channel")  # Grayscale (H, W) → (1, H, W)
+        else:
+            channel_first = EnsureChannelFirst(channel_dim=-1)  # RGB (H, W, C) → (C, H, W)
+
         base_transforms = [
-            EnsureChannelFirst(),
+            channel_first,
             Resize(spatial_size=spatial_size, mode='bilinear'),
             ScaleIntensityRange(a_min=0, a_max=255, b_min=0.0, b_max=1.0, clip=True),
             NormalizeIntensity(subtrahend=0.485, divisor=0.229),  # ImageNet normalization
@@ -137,7 +150,7 @@ class MONAITransforms:
         self.check_availability()
 
         base_transforms = [
-            EnsureChannelFirst(),
+            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) - channels last
             Resize(spatial_size=spatial_size, mode='bilinear'),
             ScaleIntensityRange(a_min=0, a_max=255, b_min=0.0, b_max=1.0, clip=True),
             NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225]),
@@ -167,7 +180,7 @@ class MONAITransforms:
         self.check_availability()
 
         base_transforms = [
-            EnsureChannelFirst(),
+            EnsureChannelFirst(channel_dim=-1),  # PIL RGB images are (H, W, C) - channels last
             Resize(spatial_size=spatial_size, mode='bilinear'),
             ScaleIntensityRange(a_min=0, a_max=255, b_min=0.0, b_max=1.0, clip=True),
             NormalizeIntensity(subtrahend=[0.485, 0.456, 0.406], divisor=[0.229, 0.224, 0.225]),
@@ -367,7 +380,8 @@ class MONAITransforms:
 def get_preprocessing_pipeline(
     modality: str,
     spatial_size: Optional[Tuple] = None,
-    is_training: bool = False
+    is_training: bool = False,
+    is_grayscale: bool = False
 ) -> Callable:
     """
     Get a preprocessing pipeline for a specific imaging modality.
@@ -376,6 +390,7 @@ def get_preprocessing_pipeline(
         modality: One of 'chest_xray', 'skin_lesion', 'fundus', 'ct', 'mri'
         spatial_size: Optional spatial size override
         is_training: Whether to include augmentation transforms
+        is_grayscale: For 2D modalities, whether input is grayscale (H, W) or RGB (H, W, C)
 
     Returns:
         MONAI Compose transform pipeline
@@ -385,23 +400,28 @@ def get_preprocessing_pipeline(
     modality_configs = {
         'chest_xray': {
             'fn': transforms.get_chest_xray_transforms,
-            'default_size': (224, 224)
+            'default_size': (224, 224),
+            'supports_grayscale': True
         },
         'skin_lesion': {
             'fn': transforms.get_skin_lesion_transforms,
-            'default_size': (224, 224)
+            'default_size': (224, 224),
+            'supports_grayscale': False
         },
         'fundus': {
             'fn': transforms.get_fundus_transforms,
-            'default_size': (512, 512)
+            'default_size': (512, 512),
+            'supports_grayscale': False
         },
         'ct': {
             'fn': transforms.get_ct_scan_transforms,
-            'default_size': (96, 96, 96)
+            'default_size': (96, 96, 96),
+            'supports_grayscale': False
         },
         'mri': {
             'fn': transforms.get_mri_transforms,
-            'default_size': (128, 128, 128)
+            'default_size': (128, 128, 128),
+            'supports_grayscale': False
         }
     }
 
@@ -411,6 +431,9 @@ def get_preprocessing_pipeline(
     config = modality_configs[modality]
     size = spatial_size or config['default_size']
 
+    # Pass is_grayscale for modalities that support it
+    if config.get('supports_grayscale') and is_grayscale:
+        return config['fn'](spatial_size=size, is_training=is_training, is_grayscale=True)
     return config['fn'](spatial_size=size, is_training=is_training)
 
 
