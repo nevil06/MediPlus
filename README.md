@@ -52,15 +52,19 @@ The application leverages state-of-the-art deep learning models for medical imag
 
 ## Key Features
 
-### 1. Medical Image Analysis (MONAI-Powered)
+### 1. Medical Image Analysis (MONAI + Groq LLM)
 
-| Feature | Conditions Detected | AI Model |
-|---------|---------------------|----------|
-| **Chest X-Ray Analysis** | Pneumonia, COVID-19, Cardiomegaly, Lung Nodules, Pleural Effusion, Atelectasis, Pneumothorax | DenseNet121 |
-| **Skin Lesion Analysis** | Melanoma, Basal Cell Carcinoma, Benign Keratosis, Actinic Keratosis, Melanocytic Nevi, Vascular Lesion, Dermatofibroma | EfficientNetBN |
-| **Eye Health Screening** | Diabetic Retinopathy (5 grades), Glaucoma, Macular Degeneration, Cataracts | DenseNet121 |
+MONAI (Medical Open Network for AI) performs the image classification, then **Groq LLM (llama-3.3-70b-versatile)** enhances the results with detailed, patient-friendly explanations.
 
-All image analysis is enhanced with **Groq LLM** (llama-3.3-70b-versatile) for detailed findings and recommendations.
+| Feature | Conditions Detected | MONAI Model | LLM Enhancement |
+|---------|---------------------|-------------|-----------------|
+| **Chest X-Ray Analysis** | Pneumonia, COVID-19, Cardiomegaly, Lung Nodules, Pleural Effusion, Atelectasis, Pneumothorax | DenseNet121 | Detailed findings & recommendations |
+| **Skin Lesion Analysis** | Melanoma, Basal Cell Carcinoma, Benign Keratosis, Actinic Keratosis, Melanocytic Nevi, Vascular Lesion, Dermatofibroma | EfficientNetBN | ABCDE assessment & urgency level |
+| **Eye Health Screening** | Diabetic Retinopathy (5 grades), Glaucoma, Macular Degeneration, Cataracts | DenseNet121 | Severity explanation & follow-up advice |
+
+**How it works:**
+1. **MONAI** analyzes the medical image and returns classification probabilities
+2. **Groq LLM** takes the MONAI results and generates human-readable explanations, risk assessments, and actionable recommendations
 
 ### 2. Medical Image Segmentation
 
