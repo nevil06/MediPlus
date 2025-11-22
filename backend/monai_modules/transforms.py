@@ -117,7 +117,13 @@ class MONAITransforms:
 
         # Handle channel dimension based on input format
         if is_grayscale:
-            channel_first = EnsureChannelFirst(channel_dim="no_channel")  # Grayscale (H, W) → (1, H, W)
+            # For grayscale numpy arrays (H, W), use Lambda to add channel dim
+            # This avoids EnsureChannelFirst issues with raw numpy arrays
+            def add_channel(x):
+                if isinstance(x, np.ndarray) and x.ndim == 2:
+                    return x[np.newaxis, ...]  # (H, W) → (1, H, W)
+                return x
+            channel_first = Lambda(add_channel)
         else:
             channel_first = EnsureChannelFirst(channel_dim=-1)  # RGB (H, W, C) → (C, H, W)
 
