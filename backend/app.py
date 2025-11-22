@@ -747,6 +747,45 @@ def analyze_chest_xray_v2():
             image_data=data['image'],
             enhance_with_ai=data.get('enhance_with_ai', True)
         )
+
+        # Transform to frontend-expected format
+        if result.get('success'):
+            ai_enhanced = result.get('ai_enhanced', {})
+            primary = result.get('primary_diagnosis', {})
+            predictions = result.get('predictions', {})
+
+            # Build findings array from predictions
+            findings = []
+            for condition, pred_data in predictions.items():
+                prob = pred_data.get('probability', 0) if isinstance(pred_data, dict) else pred_data
+                if prob > 0.1 and condition != 'Normal':
+                    findings.append({
+                        'condition': condition,
+                        'probability': round(prob * 100, 1),
+                        'description': ai_enhanced.get('detailed_explanation', f'{condition} detected')
+                    })
+            findings.sort(key=lambda x: x['probability'], reverse=True)
+
+            # Build all_predictions dict
+            all_predictions = {}
+            for condition, pred_data in predictions.items():
+                prob = pred_data.get('probability', 0) if isinstance(pred_data, dict) else pred_data
+                all_predictions[condition] = round(prob * 100, 1)
+
+            transformed = {
+                'success': True,
+                'analysis': {
+                    'primary_finding': ai_enhanced.get('primary_finding', primary.get('condition', 'Unknown')),
+                    'confidence': round((ai_enhanced.get('confidence') or primary.get('probability', 0)) * 100 if ai_enhanced.get('confidence', 0) <= 1 else ai_enhanced.get('confidence', primary.get('probability', 0) * 100), 1),
+                    'risk_level': ai_enhanced.get('risk_level', 'Low'),
+                    'findings': findings[:5],
+                    'all_predictions': all_predictions,
+                    'recommendation': ai_enhanced.get('recommendation', 'Please consult a healthcare professional for accurate diagnosis.'),
+                    'disclaimer': 'This analysis is for informational purposes only and should not replace professional medical advice.'
+                }
+            }
+            return jsonify(transformed)
+
         return jsonify(result)
 
     except Exception as e:
@@ -778,6 +817,65 @@ def analyze_skin_v2():
             image_data=data['image'],
             enhance_with_ai=data.get('enhance_with_ai', True)
         )
+
+        # Transform to frontend-expected format
+        if result.get('success'):
+            ai_enhanced = result.get('ai_enhanced', {})
+            primary = result.get('primary_diagnosis', {})
+            predictions = result.get('predictions', {})
+            abcde = result.get('abcde_assessment', {})
+
+            # Build findings array
+            findings = []
+            for classification, pred_data in predictions.items():
+                prob = pred_data.get('probability', 0) if isinstance(pred_data, dict) else pred_data
+                is_malignant = pred_data.get('is_malignant', False) if isinstance(pred_data, dict) else False
+                if prob > 0.1:
+                    findings.append({
+                        'classification': classification,
+                        'probability': round(prob * 100, 1),
+                        'risk_category': 'High' if is_malignant else 'Low',
+                        'description': f'{classification} likelihood detected'
+                    })
+            findings.sort(key=lambda x: x['probability'], reverse=True)
+
+            # Build all_predictions dict
+            all_predictions = {}
+            for classification, pred_data in predictions.items():
+                prob = pred_data.get('probability', 0) if isinstance(pred_data, dict) else pred_data
+                all_predictions[classification] = round(prob * 100, 1)
+
+            # ABCDE assessment formatting
+            abcde_assessment = {
+                'asymmetry': abcde.get('asymmetry', {}).get('description', 'Not assessed'),
+                'border': abcde.get('border', {}).get('description', 'Not assessed'),
+                'color': abcde.get('color', {}).get('description', 'Not assessed'),
+                'diameter': abcde.get('diameter', {}).get('description', 'Not assessed'),
+                'evolution': abcde.get('evolution', {}).get('description', 'Not assessed'),
+                'overall_concern': abcde.get('note', 'Clinical assessment recommended')
+            }
+
+            # Determine urgency
+            is_malignant = primary.get('is_malignant', False)
+            urgency = 'URGENT' if is_malignant else ai_enhanced.get('urgency', 'Routine')
+
+            transformed = {
+                'success': True,
+                'analysis': {
+                    'primary_classification': ai_enhanced.get('primary_classification', primary.get('condition', 'Unknown')),
+                    'confidence': round((ai_enhanced.get('confidence') or primary.get('probability', 0)) * 100 if (ai_enhanced.get('confidence') or 0) <= 1 else ai_enhanced.get('confidence', primary.get('probability', 0) * 100), 1),
+                    'risk_level': ai_enhanced.get('risk_level', 'High' if is_malignant else 'Low'),
+                    'urgency': urgency,
+                    'findings': findings[:5],
+                    'abcde_assessment': abcde_assessment,
+                    'all_predictions': all_predictions,
+                    'recommendation': ai_enhanced.get('recommendation', 'Please consult a dermatologist for accurate diagnosis.'),
+                    'next_steps': ai_enhanced.get('next_steps', ['Schedule a dermatologist appointment', 'Monitor for changes']),
+                    'disclaimer': 'This analysis is for informational purposes only and should not replace professional medical advice.'
+                }
+            }
+            return jsonify(transformed)
+
         return jsonify(result)
 
     except Exception as e:
@@ -809,6 +907,66 @@ def analyze_eye_v2():
             image_data=data['image'],
             enhance_with_ai=data.get('enhance_with_ai', True)
         )
+
+        # Transform to frontend-expected format
+        if result.get('success'):
+            ai_enhanced = result.get('ai_enhanced', {})
+            dr_grade = result.get('dr_grade', {})
+            recommendations = result.get('recommendations', [])
+
+            # DR grade info
+            grade_name = dr_grade.get('grade', ai_enhanced.get('dr_grade', 'Unknown'))
+            grade_number = dr_grade.get('severity_index', ai_enhanced.get('dr_grade_number', 0))
+            confidence = dr_grade.get('probability', 0)
+
+            # Determine urgency based on grade
+            urgency_map = {0: 'Annual', 1: 'Routine', 2: 'Soon', 3: 'URGENT', 4: 'URGENT'}
+            urgency = ai_enhanced.get('urgency', urgency_map.get(grade_number, 'Routine'))
+
+            # DR description based on grade
+            dr_descriptions = {
+                0: 'No signs of diabetic retinopathy detected.',
+                1: 'Mild non-proliferative diabetic retinopathy with microaneurysms.',
+                2: 'Moderate non-proliferative diabetic retinopathy with retinal hemorrhages.',
+                3: 'Severe non-proliferative diabetic retinopathy with significant changes.',
+                4: 'Proliferative diabetic retinopathy with new blood vessel growth.'
+            }
+
+            # Other findings (empty for DR-focused analysis)
+            other_findings = []
+
+            # Calculate health score (inverse of severity)
+            health_score = max(0, 100 - (grade_number * 20))
+            if ai_enhanced.get('confidence'):
+                health_score = int(health_score * (1 - (ai_enhanced.get('confidence', 0) / 100 * 0.3)))
+
+            transformed = {
+                'success': True,
+                'analysis': {
+                    'diabetic_retinopathy': {
+                        'grade': grade_name,
+                        'grade_number': grade_number,
+                        'confidence': round(confidence * 100 if confidence <= 1 else confidence, 1),
+                        'description': ai_enhanced.get('detailed_explanation', dr_descriptions.get(grade_number, 'Assessment completed.')),
+                        'all_grades': dr_grade.get('all_grades', {})
+                    },
+                    'risk_level': ai_enhanced.get('risk_level', 'Low' if grade_number < 2 else 'Moderate' if grade_number < 3 else 'High'),
+                    'urgency': urgency,
+                    'other_findings': other_findings,
+                    'overall_health_score': ai_enhanced.get('overall_health_score', health_score),
+                    'recommendation': ai_enhanced.get('recommendation', recommendations[0] if recommendations else 'Schedule regular eye examinations.'),
+                    'follow_up': ai_enhanced.get('follow_up_schedule', f'Follow-up recommended: {urgency}'),
+                    'lifestyle_tips': ai_enhanced.get('lifestyle_tips', [
+                        'Maintain healthy blood sugar levels',
+                        'Control blood pressure',
+                        'Avoid smoking',
+                        'Get regular eye exams'
+                    ]),
+                    'disclaimer': 'This analysis is for informational purposes only and should not replace professional medical advice.'
+                }
+            }
+            return jsonify(transformed)
+
         return jsonify(result)
 
     except Exception as e:
